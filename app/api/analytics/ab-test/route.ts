@@ -1,7 +1,16 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 // Mock analytics storage
-const abTestData: any[] = []
+interface ABTestData {
+  id: number
+  variant: string
+  page: string
+  timestamp: string
+  userId: number
+  sessionId: string
+}
+
+const abTestData: ABTestData[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +21,7 @@ export async function POST(request: NextRequest) {
 
     const { variant, page, timestamp } = await request.json()
 
-    const testData = {
+    const testData: ABTestData = {
       id: abTestData.length + 1,
       variant,
       page,
@@ -27,7 +36,7 @@ export async function POST(request: NextRequest) {
       message: "A/B test data recorded",
       data: testData,
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -57,7 +66,7 @@ export async function GET(request: NextRequest) {
         },
       },
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

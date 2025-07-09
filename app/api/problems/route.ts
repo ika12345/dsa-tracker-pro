@@ -1,7 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
 
 // Mock problems database
-const problems: any[] = []
+interface Problem {
+  id: number
+  title: string
+  difficulty: string
+  category: string
+  status: string
+  notes?: string
+  createdAt: string
+  userId: number
+}
+
+const problems: Problem[] = []
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +23,7 @@ export async function POST(request: NextRequest) {
 
     const problemData = await request.json()
 
-    const newProblem = {
+    const newProblem: Problem = {
       id: problems.length + 1,
       ...problemData,
       createdAt: new Date().toISOString(),
@@ -25,7 +36,7 @@ export async function POST(request: NextRequest) {
       message: "Problem tracked successfully",
       problem: newProblem,
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -43,7 +54,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       problems: userProblems,
     })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

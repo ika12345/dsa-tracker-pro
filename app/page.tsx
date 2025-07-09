@@ -8,7 +8,7 @@ import { Code, TrendingUp, Brain, Target, Zap, BarChart3 } from "lucide-react"
 
 export default function LandingPage() {
   const router = useRouter()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [_isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token")

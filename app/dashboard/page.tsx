@@ -128,7 +128,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.currentStreak} days</div>
-              <p className="text-xs text-muted-foreground">Keep it up! 🔥</p>
+                                <p className="text-xs text-muted-foreground">Keep it up! &apos;🔥</p>
             </CardContent>
           </Card>
 

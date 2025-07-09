@@ -3,7 +3,7 @@ import { MongoClient } from "mongodb"
 const uri = process.env.MONGODB_URI as string
 const options = {}
 
-let client
+let client: MongoClient
 let clientPromise: Promise<MongoClient>
 
 if (!process.env.MONGODB_URI) {
@@ -11,13 +11,13 @@ if (!process.env.MONGODB_URI) {
 }
 
 if (process.env.NODE_ENV === "development") {
-  // @ts-ignore
+  // @ts-expect-error - global type not available
   if (!global._mongoClientPromise) {
     client = new MongoClient(uri, options)
-    // @ts-ignore
+    // @ts-expect-error - global type not available
     global._mongoClientPromise = client.connect()
   }
-  // @ts-ignore
+  // @ts-expect-error - global type not available
   clientPromise = global._mongoClientPromise
 } else {
   client = new MongoClient(uri, options)

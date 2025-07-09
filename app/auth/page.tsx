@@ -52,7 +52,7 @@ export default function AuthPage() {
       } else {
         setError(data.error || "Login failed")
       }
-    } catch (err) {
+    } catch {
       setError("Network error. Please try again.")
     } finally {
       setIsLoading(false)
@@ -89,7 +89,7 @@ export default function AuthPage() {
       } else {
         setError(data.error || "Signup failed")
       }
-    } catch (err) {
+    } catch {
       setError("Network error. Please try again.")
     } finally {
       setIsLoading(false)
