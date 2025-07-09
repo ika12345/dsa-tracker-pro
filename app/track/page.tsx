@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Code, Plus, CheckCircle } from "lucide-react"
+import { ArrowLeft, Code, Plus, CheckCircle, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 const topics = [
@@ -32,23 +32,16 @@ const topics = [
 
 const difficulties = ["Easy", "Medium", "Hard"]
 
-const topicProgress = {
-  Arrays: { solved: 25, total: 50 },
-  Strings: { solved: 20, total: 40 },
-  Trees: { solved: 18, total: 35 },
-  "Dynamic Programming": { solved: 15, total: 45 },
-  Graphs: { solved: 12, total: 30 },
-  "Linked Lists": { solved: 10, total: 25 },
-}
-
 export default function TrackPage() {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [topicProgress, setTopicProgress] = useState<any>({})
+  const [loading, setLoading] = useState(true)
 
   const [formData, setFormData] = useState({
-    problemName: "",
-    topic: "",
+    title: "",
+    category: "",
     difficulty: "",
     platform: "",
     timeSpent: "",
@@ -60,8 +53,30 @@ export default function TrackPage() {
     const token = localStorage.getItem("auth_token")
     if (!token) {
       router.push("/auth")
+      return
     }
+    fetchTopicProgress(token)
   }, [router])
+
+  const fetchTopicProgress = async (token: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch("/api/dashboard/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setTopicProgress(data.topicDistribution)
+      }
+    } catch (error) {
+      console.error("Error fetching topic progress:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,26 +89,57 @@ export default function TrackPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          title: formData.title,
+          category: formData.category,
+          difficulty: formData.difficulty,
+          platform: formData.platform,
+          timeSpent: parseInt(formData.timeSpent) || 0,
+          notes: formData.notes,
+          solution: formData.solution,
+        }),
       })
 
       if (response.ok) {
         setShowSuccess(true)
         setFormData({
-          problemName: "",
-          topic: "",
+          title: "",
+          category: "",
           difficulty: "",
           platform: "",
           timeSpent: "",
           notes: "",
           solution: "",
         })
+        
+        // Refresh topic progress
+        const token = localStorage.getItem("auth_token")
+        if (token) {
+          await fetchTopicProgress(token)
+        }
+        
         setTimeout(() => setShowSuccess(false), 3000)
+      } else {
+        const errorData = await response.json()
+        console.error("Error submitting problem:", errorData)
       }
     } catch (error) {
       console.error("Error submitting problem:", error)
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy":
+        return "bg-green-100 text-green-800"
+      case "Medium":
+        return "bg-yellow-100 text-yellow-800"
+      case "Hard":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
     }
   }
 
@@ -134,12 +180,12 @@ export default function TrackPage() {
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="problemName">Problem Name *</Label>
+                      <Label htmlFor="title">Problem Name *</Label>
                       <Input
-                        id="problemName"
+                        id="title"
                         placeholder="e.g., Two Sum"
-                        value={formData.problemName}
-                        onChange={(e) => setFormData({ ...formData, problemName: e.target.value })}
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                         required
                       />
                     </div>
@@ -157,10 +203,10 @@ export default function TrackPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="topic">Topic *</Label>
+                      <Label htmlFor="category">Topic *</Label>
                       <Select
-                        value={formData.topic}
-                        onValueChange={(value) => setFormData({ ...formData, topic: value })}
+                        value={formData.category}
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select a topic" />
@@ -200,7 +246,7 @@ export default function TrackPage() {
                     <Input
                       id="timeSpent"
                       type="number"
-                      placeholder="e.g., 30"
+                      placeholder="e.g., 45"
                       value={formData.timeSpent}
                       onChange={(e) => setFormData({ ...formData, timeSpent: e.target.value })}
                     />
@@ -210,7 +256,7 @@ export default function TrackPage() {
                     <Label htmlFor="notes">Notes</Label>
                     <Textarea
                       id="notes"
-                      placeholder="Any insights, challenges, or key learnings..."
+                      placeholder="Your thoughts, approach, or key insights..."
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                       rows={3}
@@ -221,64 +267,88 @@ export default function TrackPage() {
                     <Label htmlFor="solution">Solution (Optional)</Label>
                     <Textarea
                       id="solution"
-                      placeholder="Paste your solution code here..."
+                      placeholder="Your solution approach or code..."
                       value={formData.solution}
                       onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
-                      rows={6}
-                      className="font-mono text-sm"
+                      rows={5}
                     />
                   </div>
 
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? "Tracking Problem..." : "Track Problem"}
+                    {isSubmitting ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Tracking Problem...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Track Problem
+                      </>
+                    )}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar - Topic Progress */}
+          {/* Progress Sidebar */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Topic Progress</CardTitle>
-                <CardDescription>Your progress across different topics</CardDescription>
+                <CardDescription>Your progress by category</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {Object.entries(topicProgress).map(([topic, progress]) => (
-                  <div key={topic} className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{topic}</span>
-                      <span className="text-sm text-gray-500">
-                        {progress.solved}/{progress.total}
-                      </span>
-                    </div>
-                    <Progress value={(progress.solved / progress.total) * 100} />
+              <CardContent>
+                {loading ? (
+                  <div className="flex items-center justify-center py-4">
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    <span className="text-sm text-gray-500">Loading progress...</span>
                   </div>
-                ))}
+                ) : Object.keys(topicProgress).length > 0 ? (
+                  <div className="space-y-4">
+                    {Object.entries(topicProgress).map(([topic, count]) => (
+                      <div key={topic} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">{topic}</span>
+                          <Badge variant="secondary">{count as number} solved</Badge>
+                        </div>
+                        <Progress value={(count as number) * 10} className="h-2" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    <p className="text-sm">No problems tracked yet.</p>
+                    <p className="text-xs mt-1">Start solving problems to see your progress!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Quick Stats</CardTitle>
+                <CardTitle>Quick Tips</CardTitle>
+                <CardDescription>Make the most of your tracking</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Problems this week:</span>
-                  <Badge>12</Badge>
+              <CardContent className="space-y-3">
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-gray-600">
+                    Be consistent with your difficulty ratings
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Current streak:</span>
-                  <Badge variant="secondary">7 days</Badge>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-gray-600">
+                    Add notes to remember your approach
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span>Favorite topic:</span>
-                  <Badge variant="outline">Arrays</Badge>
-                </div>
-                <div className="flex justify-between">
-                  <span>Average time:</span>
-                  <span className="text-sm text-gray-600">25 min</span>
+                <div className="flex items-start space-x-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <p className="text-sm text-gray-600">
+                    Track time spent to improve efficiency
+                  </p>
                 </div>
               </CardContent>
             </Card>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Target, Calendar, Award, Brain, Code, BarChart3, Plus, LogOut } from "lucide-react"
+import { TrendingUp, Target, Calendar, Award, Brain, Code, BarChart3, Plus, LogOut, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import {
   LineChart,
@@ -21,34 +21,20 @@ import {
   Cell,
 } from "recharts"
 
-const progressData = [
-  { date: "2024-01-01", problems: 45 },
-  { date: "2024-01-08", problems: 52 },
-  { date: "2024-01-15", problems: 61 },
-  { date: "2024-01-22", problems: 68 },
-  { date: "2024-01-29", problems: 75 },
-  { date: "2024-02-05", problems: 83 },
-  { date: "2024-02-12", problems: 92 },
-]
-
-const topicData = [
-  { name: "Arrays", value: 25, color: "#3b82f6" },
-  { name: "Trees", value: 18, color: "#10b981" },
-  { name: "Dynamic Programming", value: 15, color: "#f59e0b" },
-  { name: "Graphs", value: 12, color: "#ef4444" },
-  { name: "Strings", value: 20, color: "#8b5cf6" },
-  { name: "Others", value: 10, color: "#6b7280" },
-]
-
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [stats, setStats] = useState({
-    totalProblems: 92,
+    totalProblems: 0,
     weeklyGoal: 100,
-    currentStreak: 7,
-    totalTopics: 12,
+    currentStreak: 0,
+    totalTopics: 0,
   })
+  const [progressData, setProgressData] = useState<any[]>([])
+  const [topicData, setTopicData] = useState<any[]>([])
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem("auth_token")
@@ -61,8 +47,61 @@ export default function Dashboard() {
 
     if (userData) {
       setUser(JSON.parse(userData))
+      fetchDashboardData(token)
     }
   }, [router])
+
+  const fetchDashboardData = async (token: string) => {
+    try {
+      setLoading(true)
+      
+      // Fetch stats
+      const statsResponse = await fetch("/api/dashboard/stats", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData.stats)
+        setProgressData(statsData.progressData)
+        
+        // Convert topic distribution to chart format
+        const topicChartData = Object.entries(statsData.topicDistribution).map(([name, value]) => ({
+          name,
+          value,
+          color: getTopicColor(name),
+        }))
+        setTopicData(topicChartData)
+      }
+
+      // Fetch recent activity
+      const activityResponse = await fetch("/api/dashboard/recent-activity", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (activityResponse.ok) {
+        const activityData = await activityResponse.json()
+        setRecentActivity(activityData.recentActivity)
+      }
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRefresh = async () => {
+    const token = localStorage.getItem("auth_token")
+    if (token) {
+      setRefreshing(true)
+      await fetchDashboardData(token)
+      setRefreshing(false)
+    }
+  }
 
   const handleLogout = () => {
     localStorage.removeItem("auth_token")
@@ -70,8 +109,31 @@ export default function Dashboard() {
     router.push("/")
   }
 
+  const getTopicColor = (topic: string) => {
+    const colors = {
+      "Arrays": "#3b82f6",
+      "Trees": "#10b981", 
+      "Dynamic Programming": "#f59e0b",
+      "Graphs": "#ef4444",
+      "Strings": "#8b5cf6",
+      "Others": "#6b7280",
+    }
+    return colors[topic as keyof typeof colors] || "#6b7280"
+  }
+
   if (!user) {
-    return <div>Loading...</div>
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -85,6 +147,10 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center space-x-4">
             <span className="text-gray-600">Welcome, {user.name}!</span>
+            <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -103,7 +169,9 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.totalProblems}</div>
-              <p className="text-xs text-muted-foreground">+12 from last week</p>
+              <p className="text-xs text-muted-foreground">
+                {stats.totalProblems > 0 ? "+" + Math.floor(stats.totalProblems * 0.1) + " from last week" : "Start solving problems!"}
+              </p>
             </CardContent>
           </Card>
 
@@ -128,7 +196,9 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.currentStreak} days</div>
-                                <p className="text-xs text-muted-foreground">Keep it up! &apos;🔥</p>
+              <p className="text-xs text-muted-foreground">
+                {stats.currentStreak > 0 ? "Keep it up! 🔥" : "Start your streak today!"}
+              </p>
             </CardContent>
           </Card>
 
@@ -152,15 +222,21 @@ export default function Dashboard() {
               <CardDescription>Your problem-solving journey</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={progressData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="problems" stroke="#3b82f6" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              {progressData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={progressData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="problems" stroke="#3b82f6" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-500">
+                  <p>No data available yet. Start solving problems to see your progress!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -171,24 +247,30 @@ export default function Dashboard() {
               <CardDescription>Problems solved by category</CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={topicData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, value }) => `${name}: ${value}`}
-                  >
-                    {topicData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              {topicData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={topicData}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, value }) => `${name}: ${value}`}
+                    >
+                      {topicData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-gray-500">
+                  <p>No problems solved yet. Start tracking your progress!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -239,40 +321,36 @@ export default function Dashboard() {
             <CardDescription>Your latest problem-solving sessions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {[
-                { problem: "Two Sum", topic: "Arrays", difficulty: "Easy", date: "2024-02-12" },
-                { problem: "Binary Tree Inorder Traversal", topic: "Trees", difficulty: "Medium", date: "2024-02-11" },
-                {
-                  problem: "Longest Palindromic Substring",
-                  topic: "Strings",
-                  difficulty: "Medium",
-                  date: "2024-02-10",
-                },
-                { problem: "Climbing Stairs", topic: "Dynamic Programming", difficulty: "Easy", date: "2024-02-09" },
-              ].map((activity, index) => (
-                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <h4 className="font-medium">{activity.problem}</h4>
-                    <p className="text-sm text-gray-600">{activity.topic}</p>
+            {recentActivity.length > 0 ? (
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div>
+                      <h4 className="font-medium">{activity.problem}</h4>
+                      <p className="text-sm text-gray-600">{activity.topic}</p>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge
+                        variant={
+                          activity.difficulty === "Easy"
+                            ? "secondary"
+                            : activity.difficulty === "Medium"
+                              ? "default"
+                              : "destructive"
+                        }
+                      >
+                        {activity.difficulty}
+                      </Badge>
+                      <span className="text-sm text-gray-500">{activity.date}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <Badge
-                      variant={
-                        activity.difficulty === "Easy"
-                          ? "secondary"
-                          : activity.difficulty === "Medium"
-                            ? "default"
-                            : "destructive"
-                      }
-                    >
-                      {activity.difficulty}
-                    </Badge>
-                    <span className="text-sm text-gray-500">{activity.date}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <p>No recent activity. Start solving problems to see your activity here!</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
