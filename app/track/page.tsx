@@ -118,7 +118,10 @@ export default function TrackPage() {
           await fetchTopicProgress(token)
         }
         
-        setTimeout(() => setShowSuccess(false), 3000)
+        // Redirect to dashboard after 2 seconds
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 2000)
       } else {
         const errorData = await response.json()
         console.error("Error submitting problem:", errorData)
@@ -171,9 +174,19 @@ export default function TrackPage() {
               </CardHeader>
               <CardContent>
                 {showSuccess && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center">
-                    <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
-                    <span className="text-green-800">Problem tracked successfully!</span>
+                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <CheckCircle className="h-5 w-5 text-green-600 mr-2" />
+                      <span className="text-green-800 font-medium">Problem tracked successfully!</span>
+                    </div>
+                    <p className="text-green-700 text-sm">Redirecting to dashboard to see your updated progress...</p>
+                    <div className="mt-3">
+                      <Link href="/dashboard">
+                        <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                          View Dashboard Now
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 )}
 

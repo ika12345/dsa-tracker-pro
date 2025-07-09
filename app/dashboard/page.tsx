@@ -51,6 +51,21 @@ export default function Dashboard() {
     }
   }, [router])
 
+  // Refresh dashboard when page becomes visible (e.g., when navigating back from track page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const token = localStorage.getItem("auth_token")
+        if (token) {
+          fetchDashboardData(token)
+        }
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
+  }, [])
+
   const fetchDashboardData = async (token: string) => {
     try {
       setLoading(true)
