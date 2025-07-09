@@ -1,18 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-
-// Mock problems database
-interface Problem {
-  id: number
-  title: string
-  difficulty: string
-  category: string
-  status: string
-  notes?: string
-  createdAt: string
-  userId: number
-}
-
-const problems: Problem[] = []
+import clientPromise from "@/lib/mongodb"
+import jwt from "jsonwebtoken"
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,22 +9,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const problemData = await request.json()
+    const token = authHeader.substring(7)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+    const userId = decoded.userId
 
-    const newProblem: Problem = {
-      id: problems.length + 1,
+    console.log("Creating problem for userId:", userId)
+
+    const problemData = await request.json()
+    console.log("Problem data:", problemData)
+
+    const client = await clientPromise
+    const db = client.db("dsa-app")
+    const problems = db.collection("problems")
+
+    const newProblem = {
       ...problemData,
+      userId: userId,
       createdAt: new Date().toISOString(),
-      userId: 1, // Extract from token in real app
     }
 
-    problems.push(newProblem)
+    console.log("Saving problem:", newProblem)
+
+    const result = await problems.insertOne(newProblem)
+    console.log("Problem saved with ID:", result.insertedId)
 
     return NextResponse.json({
       message: "Problem tracked successfully",
-      problem: newProblem,
+      problem: { ...newProblem, _id: result.insertedId },
     })
-  } catch {
+  } catch (error) {
+    console.error("Error tracking problem:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
@@ -48,13 +50,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Filter problems by user (in real app)
-    const userProblems = problems.filter((p) => p.userId === 1)
+    const token = authHeader.substring(7)
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+    const userId = decoded.userId
+
+    console.log("Fetching problems for userId:", userId)
+
+    const client = await clientPromise
+    const db = client.db("dsa-app")
+    const problems = db.collection("problems")
+
+    const userProblems = await problems.find({ userId }).toArray()
+    console.log("Found problems:", userProblems.length)
 
     return NextResponse.json({
       problems: userProblems,
     })
-  } catch {
+  } catch (error) {
+    console.error("Error fetching problems:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

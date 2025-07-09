@@ -14,12 +14,15 @@ export async function GET(req: Request) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
     const userId = decoded.userId
 
+    console.log("Fetching stats for userId:", userId)
+
     const client = await clientPromise
     const db = client.db("dsa-app")
     const problems = db.collection("problems")
 
     // Get user's problems
     const userProblems = await problems.find({ userId }).toArray()
+    console.log("Found problems:", userProblems.length)
 
     // Calculate statistics
     const totalProblems = userProblems.length
@@ -27,12 +30,16 @@ export async function GET(req: Request) {
     const currentStreak = calculateStreak(userProblems)
     const totalTopics = new Set(userProblems.map(p => p.category)).size
 
+    console.log("Calculated stats:", { totalProblems, currentStreak, totalTopics })
+
     // Calculate topic distribution
     const topicDistribution = userProblems.reduce((acc, problem) => {
       const category = problem.category || "Others"
       acc[category] = (acc[category] || 0) + 1
       return acc
     }, {} as Record<string, number>)
+
+    console.log("Topic distribution:", topicDistribution)
 
     // Calculate progress over time (last 7 weeks)
     const progressData = calculateProgressData(userProblems)
